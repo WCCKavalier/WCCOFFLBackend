@@ -11,15 +11,11 @@ const parseMatchReport = async (pdfPath) => {
     .map(line => line.trim())
     .filter(line => line.length);
 
-  const debug = false; // Set to true to log lines for debugging
-
-  // Helper to extract a line's value by prefix (loose match)
   const extractLine = (key) => {
     const line = lines.find(line => line.toLowerCase().startsWith(key.toLowerCase()));
     return line ? line.replace(new RegExp(`${key}\\s*:?\\s*`, 'i'), '').trim() : '';
   };
 
-  // Match Info
   const matchTitle = extractLine('Tournament');
   const venue = extractLine('Venue');
   const date = extractLine('Date & Time');
@@ -30,37 +26,34 @@ const parseMatchReport = async (pdfPath) => {
 
   const innings = [];
 
-  // Parse Innings
-  const inningsIndexes = [];
-  lines.forEach((line, idx) => {
-    if (/1st Innings Scorecard|2nd Innings Scorecard/i.test(line)) {
-      inningsIndexes.push(idx);
-    }
-  });
+  const inningsIndexes = lines
+    .map((line, index) => (/1st Innings Scorecard|2nd Innings Scorecard/i.test(line) ? index : -1))
+    .filter(index => index !== -1);
 
   for (let i = 0; i < inningsIndexes.length; i++) {
     const start = inningsIndexes[i];
     const end = inningsIndexes[i + 1] || lines.length;
     const inningsLines = lines.slice(start, end);
 
-    if (debug) console.log('\n--- INNINGS ---\n', inningsLines.join('\n'));
-
     const teamLine = inningsLines[1] || '';
     const team = teamLine.split(' R')[0].trim();
 
-    // Batting
     const players = [];
     for (let j = 2; j < inningsLines.length; j++) {
       const line = inningsLines[j];
       if (/^Extras/i.test(line)) break;
 
-      const parts = line.split(/\s+/);
-      if (parts.length >= 6) {
+      const nextLine = inningsLines[j + 1] || '';
+      const combined = `${line} ${nextLine}`.trim();
+
+      const parts = combined.split(/\s+/);
+      if (parts.length >= 6 && !/^Extras/i.test(parts[0])) {
         const stats = parts.slice(-5).map(Number);
         const name = parts.slice(0, parts.length - 5).join(' ');
+
         const howOut =
-          /not out/i.test(line) ? 'not out' :
-          /b\s+/.test(line) ? 'b ' + line.split('b ')[1].split(' ')[0] :
+          /not out/i.test(combined) ? 'not out' :
+          /b\s+/.test(combined) ? 'b ' + combined.split('b ')[1].split(' ')[0] :
           'unknown';
 
         players.push({
@@ -72,23 +65,22 @@ const parseMatchReport = async (pdfPath) => {
           sr: stats[4],
           howOut
         });
+        j++; // Skip next line
       }
     }
 
-    // Extras, Total, Overs, Run Rate
     const extrasLine = inningsLines.find(l => /^Extras/i.test(l));
     const extras = extrasLine ? extrasLine.replace(/^Extras\s*:?/i, '').trim() : '';
-
-    const totalLine = inningsLines.find(l => /^Total/i.test(l));
-    const total = totalLine ? totalLine.split(/\s+/)[1] : '';
 
     const oversLine = inningsLines.find(l => /^Overs/i.test(l));
     const overs = oversLine ? oversLine.split(/\s+/)[1] : '';
 
+    const totalLine = inningsLines.find(l => /^Total/i.test(l));
+    const total = totalLine ? totalLine.split(/\s+/)[1] : '';
+
     const runRateLine = inningsLines.find(l => /^Run Rate/i.test(l));
     const runRate = runRateLine ? parseFloat(runRateLine.split(/\s+/).pop()) : 0;
 
-    // Fall of Wickets
     const fowLine = inningsLines.find(l => /Fall Of Wickets/i.test(l));
     const fallOfWickets = fowLine ? fowLine.replace(/Fall Of Wickets\s*:?/i, '').trim() : '';
 
@@ -99,7 +91,7 @@ const parseMatchReport = async (pdfPath) => {
       const line = inningsLines[j];
       if (!line || line.includes('https://')) break;
 
-      const parts = line.trim().split(/\s+/);
+      const parts = line.split(/\s+/);
       if (parts.length >= 10) {
         const stats = parts.slice(-10);
         const name = parts.slice(0, parts.length - 10).join(' ');
