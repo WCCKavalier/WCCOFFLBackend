@@ -1,7 +1,7 @@
 const cron =require('cron');
 const https =require('https');
 
-const backendUrl = 'https://wccbackend.onrender.com/api/teams';
+const backendUrl = 'https://wccbackendoffl.onrender.com/api/teams';
 const job = new cron.CronJob('*/14 * * * *', function(){
     const currentHour = new Date().getHours();
     const currentDay = new Date().getDay();

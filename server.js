@@ -22,7 +22,7 @@ const job = require('./cron.js');
 job.start();
 const allowedOrigins = [
   "http://localhost:3000", // ✅ Local React
-  "https://wcc-kavaliers.vercel.app" // ✅ Replace with your actual Vercel frontend URL
+  "https://wcc-kava.vercel.app" // ✅ Replace with your actual Vercel frontend URL
 ];
 const app = express();
 const server = http.createServer(app);
