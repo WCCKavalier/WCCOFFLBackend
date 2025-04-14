@@ -14,6 +14,7 @@ const authRoutes = require('./routes/users.js')
 const Message = require("./models/Message.js");
 const imageRoutes = require("./routes/images.js");
 const teamRoutes = require("./routes/teamRoutes.js");
+const scorecardRoutes = require('./routes/scorecard.js');
 
 dotenv.config();
 connectDB();
@@ -47,6 +48,7 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/image", imageRoutes);
 app.use("/api/team", teamRoutes);
+app.use("/api/scorecard", scorecardRoutes);
 const messageRoutes = require("./routes/messages");
 app.use("/api/messages", messageRoutes(io));
 
