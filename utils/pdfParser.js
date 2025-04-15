@@ -67,7 +67,7 @@ async function updatePlayerStatsFromMatch(match) {
       if (!batsman.name || batsman.name === "Extras") continue;
       const { name, runs = 0, balls = 0, fours = 0, sixes = 0, outDesc = "" } = batsman;
       const sr = balls ? (runs / balls) * 100 : 0;
-      const isNotOut = /notout/i.test(outDesc);
+      const isNotOut = /not[\s-]?out/i.test(outDesc);
 
       const update = {
         $inc: {
