@@ -48,7 +48,7 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/image", imageRoutes);
 app.use("/api/team", teamRoutes);
-app.use("/api/scorecard", scorecardRoutes);
+app.use("/api/uploadScorecard", scorecardRoutes);
 const messageRoutes = require("./routes/messages");
 app.use("/api/messages", messageRoutes(io));
 
