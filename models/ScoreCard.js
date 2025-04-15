@@ -1,48 +1,51 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const playerSchema = new mongoose.Schema({
+const batsmanSchema = new mongoose.Schema({
   name: String,
   runs: Number,
   balls: Number,
   fours: Number,
   sixes: Number,
   sr: Number,
-  howOut: String
+  outDesc: String
 });
 
 const bowlerSchema = new mongoose.Schema({
   name: String,
-  overs: String,
+  overs: Number,
+  maidens: Number,     // 🔄 New field
   runs: Number,
   wickets: Number,
   eco: Number,
-  dots: Number,
-  fours: Number,
-  sixes: Number,
-  wd: Number,
-  nb: Number
+  dots: Number,        // 🔄 New field ("0s")
+  fours: Number,       // 🔄 New field
+  sixes: Number,       // 🔄 New field
+  wd: Number,          // 🔄 New field
+  nb: Number           // 🔄 New field
 });
 
 const inningsSchema = new mongoose.Schema({
   team: String,
   total: String,
   overs: String,
-  runRate: Number,
-  players: [playerSchema],
-  extras: String,
-  fallOfWickets: String,
-  bowlers: [bowlerSchema]
+  runRate: String,
+  extras: String,         // 🔄 New field (e.g. "Extras (WD 3, NB 1)")
+  batsmen: [batsmanSchema],
+  bowlers: [bowlerSchema],
+  fallOfWickets: [String]
 });
 
-const scorecardSchema = new mongoose.Schema({
-  matchTitle: String,
-  venue: String,
-  date: String,
-  toss: String,
-  result: String,
-  playerOfTheMatch: String,
-  matchId: String,
+const matchSchema = new mongoose.Schema({
+  matchInfo: {
+    teams: [String],
+    date: String,
+    venue: String,
+    format: String,
+    toss: String,
+    result: String,
+    playerOfMatch: String
+  },
   innings: [inningsSchema]
 });
 
-module.exports = mongoose.model('ScoreCard', scorecardSchema);
+module.exports = mongoose.model("ScoreCard", matchSchema);
