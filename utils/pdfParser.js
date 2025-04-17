@@ -151,7 +151,7 @@ exports.uploadPDF = async (req, res) => {
 
     const savedMatch = await Match.create(extracted);
     await updatePlayerStatsFromMatch(extracted);
-
+    req.io.emit("newScorecard", savedMatch);
     res.json(savedMatch);
   } catch (err) {
     console.error("❌ AI Upload Error:", err);
@@ -168,3 +168,32 @@ exports.getAllMatches = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch matches." });
   }
 };
+
+exports.validateStumpsReport = async (req, res) => {
+  try {
+    const fileBuffer = req.file.buffer;
+    const data = await pdfParse(fileBuffer);
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const prompt = `
+You are verifying a cricket match PDF.
+
+Based on the text below, answer only "YES" or "NO":
+Is this match report created from the STUMPS cricket scoring app?
+"""${data.text}"""
+`;
+
+    const result = await model.generateContent(prompt);
+    const responseText = (await result.response.text()).trim().toUpperCase();
+
+    if (responseText === 'YES') {
+      return res.json({ isValid: true });
+    } else {
+      return res.status(400).json({ isValid: false, error: "Not a STUMPS match report." });
+    }
+  } catch (err) {
+    console.error("❌ STUMPS Check Error:", err);
+    res.status(500).json({ error: "Failed to validate PDF." });
+  }
+};
+
