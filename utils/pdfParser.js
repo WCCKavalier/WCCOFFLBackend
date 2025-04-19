@@ -218,3 +218,151 @@ exports.playerstat = async (req, res) => {
   }
 };
 
+// POST /api/playerstats/add
+exports.playerstatadd= async (req, res) => {
+  try {
+    const { name, serial } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ message: 'Player name is required.' });
+    }
+
+    const existingPlayer = await PlayerStats.findOne({ name });
+    if (existingPlayer) {
+      return res.status(400).json({ message: 'Player already exists.' });
+    }
+
+    const newPlayer = new PlayerStats({ name, serial });
+    await newPlayer.save();
+
+    res.status(201).json({ message: 'Player added successfully', player: newPlayer });
+  } catch (error) {
+    console.error('Error adding player:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// POST /api/match/validate-players
+exports.validatePlayerNamesFromPDF = async (req, res) => {
+  try {
+    const fileBuffer = req.file.buffer;
+    const data = await pdfParse(fileBuffer);
+    
+    // Extract match data using Gemini AI
+    const extracted = await extractDataWithAI(data.text);
+
+    // Prepare a list of player names (both batsmen and bowlers)
+    const allPlayerNames = new Set();
+
+    for (const inning of extracted.innings || []) {
+      for (const batsman of inning.batsmen || []) {
+        if (batsman.name && batsman.name !== "Extras") {
+          allPlayerNames.add(batsman.name.trim());
+        }
+      }
+
+      for (const bowler of inning.bowlers || []) {
+        if (bowler.name) {
+          allPlayerNames.add(bowler.name.trim());
+        }
+      }
+    }
+
+    const allNames = Array.from(allPlayerNames);
+
+    // Query Gemini AI to validate if players exist in PlayerStats
+    const playerValidationPrompt = `
+    Validate the following player names. For each player, answer with "YES" if the player exists in the database, otherwise answer "NO":
+    ${allNames.join(", ")}
+    `;
+
+    const validationResult = await genAI.getGenerativeModel().generateContent({ model: "gemini-2.0-flash" });
+    const validationResponse = await validationResult.response.text();
+
+    // Return the validation results to the frontend
+    res.json({ validationResponse });
+  } catch (error) {
+    console.error("❌ Error validating player names:", error);
+    res.status(500).json({ message: "Failed to validate player names" });
+  }
+};
+
+exports.extractPlayerNames = async (req, res) => {
+  try {
+    const fileBuffer = req.file.buffer;
+    const data = await pdfParse(fileBuffer);
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro-latest' });
+
+    const prompt = `
+You are analyzing a cricket match report from the STUMPS app.
+Your task is to extract only the **player names** who played in the match from the following report.
+
+Rules:
+- Return only the names in a JSON array format like ["Player One", "Player Two", ...].
+- Do not return anything else like team names or commentary.
+- Avoid repeating names.
+
+Match report text:
+"""${data.text}"""
+    `;
+
+    const result = await model.generateContent(prompt);
+    const textOutput = (await result.response.text()).trim();
+
+    // Parse the output assuming it's a JSON array string
+    const playerNames = JSON.parse(textOutput);
+
+    res.json({ playerNames });
+  } catch (err) {
+    console.error("❌ Error extracting player names via Gemini:", err);
+    res.status(500).json({ error: "Failed to extract player names." });
+  }
+};
+
+exports.validatePlayerNames = async (req, res) => {
+  try {
+    const { playerNames } = req.body;
+    
+    if (!playerNames || playerNames.length === 0) {
+      return res.status(400).json({ error: "No player names provided." });
+    }
+
+    // Query the database to check for missing players
+    const existingPlayers = await PlayerStats.find({ name: { $in: playerNames } });
+
+    const existingPlayerNames = new Set(existingPlayers.map(player => player.name));
+    const missingPlayers = playerNames.filter(name => !existingPlayerNames.has(name));
+
+    res.json({ missingPlayers });
+  } catch (err) {
+    console.error("❌ Error validating player names:", err);
+    res.status(500).json({ error: "Failed to validate player names." });
+  }
+};
+
+exports.updatePlayerNames = async (req, res) => {
+  try {
+    const { oldNames, newNames } = req.body;
+    
+    if (!oldNames || !newNames || oldNames.length !== newNames.length) {
+      return res.status(400).json({ error: "Invalid name update data." });
+    }
+
+    // Update player names in the database
+    for (let i = 0; i < oldNames.length; i++) {
+      await PlayerStats.updateOne({ name: oldNames[i] }, { $set: { name: newNames[i] } });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Error updating player names:", err);
+    res.status(500).json({ error: "Failed to update player names." });
+  }
+};
+
+
+
+
+
+
