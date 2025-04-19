@@ -308,9 +308,12 @@ Match report text:
     `;
 
     const result = await model.generateContent(prompt);
-    const textOutput = (await result.response.text()).trim();
+    let textOutput = (await result.response.text()).trim();
 
-    // Parse the output assuming it's a JSON array string
+    // Remove markdown formatting like ```json ... ```
+    textOutput = textOutput.replace(/```json|```/g, '').trim();
+
+    // Attempt to parse
     const playerNames = JSON.parse(textOutput);
 
     res.json({ playerNames });
@@ -319,6 +322,7 @@ Match report text:
     res.status(500).json({ error: "Failed to extract player names." });
   }
 };
+
 
 exports.validatePlayerNames = async (req, res) => {
   try {
@@ -343,23 +347,30 @@ exports.validatePlayerNames = async (req, res) => {
 
 exports.updatePlayerNames = async (req, res) => {
   try {
-    const { oldNames, newNames } = req.body;
-    
-    if (!oldNames || !newNames || oldNames.length !== newNames.length) {
-      return res.status(400).json({ error: "Invalid name update data." });
-    }
+    const updates = req.body.updates; // [{ oldName, newName }]
 
-    // Update player names in the database
-    for (let i = 0; i < oldNames.length; i++) {
-      await PlayerStats.updateOne({ name: oldNames[i] }, { $set: { name: newNames[i] } });
+    for (const { oldName, newName } of updates) {
+      if (!newName) continue;
+
+      if (oldName && oldName !== newName) {
+        // Rename existing player (if found)
+        await PlayerStats.updateOne({ name: oldName }, { name: newName });
+      } else {
+        // Add new player (if not found)
+        const exists = await PlayerStats.findOne({ name: newName });
+        if (!exists) {
+          await PlayerStats.create({ name: newName });
+        }
+      }
     }
 
     res.json({ success: true });
   } catch (err) {
     console.error("❌ Error updating player names:", err);
-    res.status(500).json({ error: "Failed to update player names." });
+    res.status(500).json({ error: "Failed to update names." });
   }
 };
+
 
 
 
