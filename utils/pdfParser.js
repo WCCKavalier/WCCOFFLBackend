@@ -219,26 +219,45 @@ exports.playerstat = async (req, res) => {
 };
 
 // POST /api/playerstats/add
-exports.playerstatadd= async (req, res) => {
+exports.playerstatadd = async (req, res) => {
   try {
-    const { name, serial } = req.body;
+    let players = req.body;
 
-    if (!name) {
-      return res.status(400).json({ message: 'Player name is required.' });
+    // Ensure players is always an array
+    if (!Array.isArray(players)) {
+      players = [players];
     }
 
-    const existingPlayer = await PlayerStats.findOne({ name });
-    if (existingPlayer) {
-      return res.status(400).json({ message: 'Player already exists.' });
+    const addedPlayers = [];
+    const skippedPlayers = [];
+
+    for (const player of players) {
+      const { name, serial } = player;
+
+      if (!name) {
+        skippedPlayers.push({ player, reason: "Missing name" });
+        continue;
+      }
+
+      const existingPlayer = await PlayerStats.findOne({ name });
+      if (existingPlayer) {
+        skippedPlayers.push({ player, reason: "Already exists" });
+        continue;
+      }
+
+      const newPlayer = new PlayerStats({ name, serial });
+      await newPlayer.save();
+      addedPlayers.push(newPlayer);
     }
 
-    const newPlayer = new PlayerStats({ name, serial });
-    await newPlayer.save();
-
-    res.status(201).json({ message: 'Player added successfully', player: newPlayer });
+    res.status(201).json({
+      message: "Player addition complete",
+      added: addedPlayers,
+      skipped: skippedPlayers,
+    });
   } catch (error) {
-    console.error('Error adding player:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Error adding players:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -327,47 +346,67 @@ Match report text:
 exports.validatePlayerNames = async (req, res) => {
   try {
     const { playerNames } = req.body;
-    
+
     if (!playerNames || playerNames.length === 0) {
       return res.status(400).json({ error: "No player names provided." });
     }
 
-    // Query the database to check for missing players
-    const existingPlayers = await PlayerStats.find({ name: { $in: playerNames } });
+    // Get all players for suggesting replacements
+    const allPlayers = await PlayerStats.find({}, 'name serial').sort({ serial: 1 });
 
+    // Check which player names exist in the DB
+    const existingPlayers = await PlayerStats.find({ name: { $in: playerNames } });
     const existingPlayerNames = new Set(existingPlayers.map(player => player.name));
+
     const missingPlayers = playerNames.filter(name => !existingPlayerNames.has(name));
 
-    res.json({ missingPlayers });
+    // Prepare the response
+    res.json({
+      missingPlayers,             // List of extracted names not in DB
+      allExistingPlayers: allPlayers // List of all DB names for dropdown
+    });
   } catch (err) {
     console.error("❌ Error validating player names:", err);
     res.status(500).json({ error: "Failed to validate player names." });
   }
 };
 
+// Update player names in the database
 exports.updatePlayerNames = async (req, res) => {
   try {
-    const updates = req.body.updates; // [{ oldName, newName }]
+    // Get the 'updates' parameter from the request body
+    const { updates } = req.body;
 
-    for (const { oldName, newName } of updates) {
-      if (!newName) continue;
+    // Validate if 'updates' is provided and is an array
+    if (!updates || !Array.isArray(updates)) {
+      return res.status(400).json({ message: "Missing or invalid 'updates' parameter." });
+    }
 
-      if (oldName && oldName !== newName) {
-        // Rename existing player (if found)
-        await PlayerStats.updateOne({ name: oldName }, { name: newName });
-      } else {
-        // Add new player (if not found)
-        const exists = await PlayerStats.findOne({ name: newName });
-        if (!exists) {
-          await PlayerStats.create({ name: newName });
-        }
+    // Loop through each update object and update the player names
+    for (const { original, updated } of updates) {
+      if (!original || !updated) {
+        return res.status(400).json({ message: "Both 'original' and 'updated' names must be provided." });
+      }
+
+      // Find the player with the 'original' name and update to the 'updated' name
+      const player = await PlayerStats.findOneAndUpdate(
+        { name: original },          // Find player by original name
+        { name: updated },           // Update with the new name
+        { new: true }                // Return the updated player document
+      );
+
+      // If the player wasn't found, return an error
+      if (!player) {
+        return res.status(404).json({ message: `Player with name "${original}" not found.` });
       }
     }
 
-    res.json({ success: true });
+    // Respond with success if all updates were successful
+    return res.status(200).json({ success: true, message: "Player names updated successfully!" });
+
   } catch (err) {
-    console.error("❌ Error updating player names:", err);
-    res.status(500).json({ error: "Failed to update names." });
+    console.error("Error updating player names:", err);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
