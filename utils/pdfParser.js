@@ -2,6 +2,7 @@ const pdfParse = require("pdf-parse");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const Match = require("../models/ScoreCard");
 const PlayerStats = require("../models/PlayerStats");
+const { sendNewPlayerEmail } = require("./mailer");
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -69,6 +70,11 @@ async function updatePlayerStatsFromMatch(match) {
       const sr = balls ? (runs / balls) * 100 : 0;
       const isNotOut = /not[\s-]?out/i.test(outDesc);
 
+      const existing = await PlayerStats.findOne({ name });
+      if (!existing) {
+        await sendNewPlayerEmail(name);
+      }
+
       const update = {
         $inc: {
           "batting.matches": 1,
@@ -109,6 +115,11 @@ async function updatePlayerStatsFromMatch(match) {
         nb = 0
       } = bowler;
 
+      const existing = await PlayerStats.findOne({ name });
+      if (!existing) {
+        await sendNewPlayerEmail(name);
+      }
+
       const player = await PlayerStats.findOneAndUpdate(
         { name },
         {
@@ -135,6 +146,7 @@ async function updatePlayerStatsFromMatch(match) {
     }
   }
 }
+
 
 exports.uploadPDF = async (req, res) => {
   try {
@@ -194,6 +206,15 @@ Is this match report created from the STUMPS cricket scoring app?
   } catch (err) {
     console.error("❌ STUMPS Check Error:", err);
     res.status(500).json({ error: "Failed to validate PDF." });
+  }
+};
+exports.playerstat = async (req, res) => {
+  try {
+    const players = await PlayerStats.find().sort({ serial: 1 });
+    res.json(players);
+  } catch (err) {
+    console.error("❌ Failed to fetch player stats:", err);
+    res.status(500).json({ error: "Failed to fetch player stats." });
   }
 };
 
