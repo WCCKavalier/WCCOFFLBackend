@@ -9,7 +9,7 @@ router.post("/", upload.single("pdf"), uploadPDF);   // Upload + AI parse
 router.get("/", getAllMatches);                      // Fetch all parsed matches
 router.post('/validateStumpsReport', upload.single('pdf'), validateStumpsReport);
 router.get("/playerstat", playerstat);  
-router.get("/playerstatadd", playerstatadd);  
+router.post("/playerstatadd", playerstatadd);  
 router.post("/validate-player-names", upload.single("pdf"), validatePlayerNamesFromPDF);
 router.post("/extractPlayerNames", upload.single("pdf"), extractPlayerNames);     
 router.post("/validatePlayerNames", validatePlayerNames);                         
