@@ -292,7 +292,7 @@ exports.extractPlayerNames = async (req, res) => {
     const fileBuffer = req.file.buffer;
     const data = await pdfParse(fileBuffer);
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro-latest' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     const prompt = `
 You are analyzing a cricket match report from the STUMPS app.
