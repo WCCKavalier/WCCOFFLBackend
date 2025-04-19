@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const playerStatsSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
+  serial: { type: Number, default: 0 },
   batting: {
     matches: { type: Number, default: 0 },
     runs: { type: Number, default: 0 },
