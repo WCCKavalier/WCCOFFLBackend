@@ -15,6 +15,7 @@ const Message = require("./models/Message.js");
 const imageRoutes = require("./routes/images.js");
 const teamRoutes = require("./routes/teamRoutes.js");
 const scorecardRoutes = require('./routes/scorecard.js');
+const Activity = require('./models/Activity.js');
 
 dotenv.config();
 connectDB();
@@ -41,6 +42,18 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+app.use(async (req, res, next) => {
+  try {
+    await Activity.updateOne(
+      { name: 'activityStatus' },
+      { lastActive: new Date(), active: true },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.error('⚠️ Failed to update activity log:', err.message);
+  }
+  next();
+});
 app.use((req, res, next) => {
   req.io = io;
   next();
@@ -55,10 +68,20 @@ app.use("/api/messages", messageRoutes(io));
 // Handle socket.io connections
 io.on("connection", (socket) => {
   console.log("🔌 A user connected");
+  Activity.updateOne(
+    { name: 'activityStatus' },
+    { lastActive: new Date(), active: true },
+    { upsert: true }
+  ).catch(err => console.error('Socket connect activity error:', err.message));
 
   socket.on("sendMessage", async (data) => {
     try {
       const { username, message } = data;
+      Activity.updateOne(
+        { name: 'activityStatus' },
+        { lastActive: new Date(), active: true },
+        { upsert: true }
+      ).catch((err) => console.error('Activity update failed:', err.message));
       const newMessage = new Message({ username, message });
       await newMessage.save();
       io.emit("receiveMessage", newMessage);
