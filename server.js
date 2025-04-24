@@ -23,14 +23,25 @@ connectDB();
 const job = require('./cron.js');
 job.start();
 const allowedOrigins = [
-  "http://localhost:3000", // ✅ Local React
-  "https://wcc-kava.vercel.app" // ✅ Replace with your actual Vercel frontend URL
+  "http://localhost:3000",
+  "https://wcc-kava.vercel.app"
 ];
+function corsOriginCheck(origin, callback) {
+  if (
+    !origin || // allow non-browser tools like Postman
+    allowedOrigins.includes(origin) ||
+    /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(origin) // matches 192.168.x.x (no slash)
+  ) {
+    callback(null, true);
+  } else {
+    callback(new Error("Not allowed by CORS"));
+  }
+}
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: corsOriginCheck,
     methods: ["GET", "POST","PUT","DELETE"],
     credentials: true
   }
