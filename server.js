@@ -27,16 +27,21 @@ const allowedOrigins = [
   "https://wcc-kava.vercel.app"
 ];
 function corsOriginCheck(origin, callback) {
+  const cleanOrigin = origin?.replace(/\/$/, ""); // remove trailing slash
+
+  const ipBasedOrigin = /^https?:\/\/\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(cleanOrigin);
+
   if (
-    !origin || // allow non-browser tools like Postman
-    allowedOrigins.includes(origin) ||
-    /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?(\/)?$/.test(origin) // matches 192.168.x.x (no slash)
+    !origin || // allow Postman etc.
+    allowedOrigins.includes(cleanOrigin) || // allow localhost and vercel
+    ipBasedOrigin // allow http://<any-ip>:<port>
   ) {
     callback(null, true);
   } else {
     callback(new Error("Not allowed by CORS"));
   }
 }
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
