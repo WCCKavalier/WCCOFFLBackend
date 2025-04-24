@@ -30,7 +30,7 @@ function corsOriginCheck(origin, callback) {
   if (
     !origin || // allow non-browser tools like Postman
     allowedOrigins.includes(origin) ||
-    /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(origin) // matches 192.168.x.x (no slash)
+    /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?(\/)?$/.test(origin) // matches 192.168.x.x (no slash)
   ) {
     callback(null, true);
   } else {
