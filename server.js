@@ -58,6 +58,9 @@ app.use((req, res, next) => {
   req.io = io;
   next();
 });
+app.get("/ping", (req, res) => {
+  res.send("pong");
+});
 app.use("/api/auth", authRoutes);
 app.use("/api/image", imageRoutes);
 app.use("/api/team", teamRoutes);
