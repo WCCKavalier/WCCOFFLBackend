@@ -20,4 +20,23 @@ async function sendNewPlayerEmail(name) {
   await transporter.sendMail(mailOptions);
 }
 
-module.exports = { sendNewPlayerEmail };
+async function sendPingFailureAlert(subject, message) {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: "varunvinod30@gmail.com",
+    subject,
+    text: message,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log("📧 Ping failure alert email sent.");
+  } catch (error) {
+    console.error("❌ Failed to send ping failure alert:", error.message);
+  }
+}
+
+module.exports = {
+  sendNewPlayerEmail,
+  sendPingFailureAlert, // ⬅️ Export the new function
+};
