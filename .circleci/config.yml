@@ -3,48 +3,63 @@ version: 2.1
 executors:
   node-executor:
     docker:
-      - image: cimg/node:20.10.0
+      - image: cimg/node:20.0
+    working_directory: ~/project
 
 jobs:
   uptime-check:
     executor: node-executor
     steps:
       - checkout
-      - run: npm install
-      - run: node scripts/uptime-check.js
+      - run:
+          name: Install dependencies
+          command: npm install
+      - run:
+          name: Run Uptime Check
+          command: node scripts/uptime-check.js
 
 workflows:
-  schedule-uptime-check-1:
+  schedule-uptime-check-00:
     triggers:
       - schedule:
-          cron: "*/45 * * * *"  # every 45 minutes (closest to your 14-minute goal on CircleCI)
+          cron: "0 * * * *"
           filters:
             branches:
               only: main
     jobs:
       - uptime-check
 
-  schedule-uptime-check-2:
+  schedule-uptime-check-15:
     triggers:
       - schedule:
-          cron: "40 8 * * *"
+          cron: "15 * * * *"
           filters:
             branches:
               only: main
     jobs:
       - uptime-check
 
-  schedule-uptime-check-3:
+  schedule-uptime-check-30:
     triggers:
       - schedule:
-          cron: "0 9 * * *"
+          cron: "30 * * * *"
           filters:
             branches:
               only: main
     jobs:
       - uptime-check
 
-  schedule-uptime-check-4:
+  schedule-uptime-check-45:
+    triggers:
+      - schedule:
+          cron: "45 * * * *"
+          filters:
+            branches:
+              only: main
+    jobs:
+      - uptime-check
+
+   schedule-custom-0130-IST:
     triggers:
       - schedule:
           cron: "30 19 * * *"
@@ -54,7 +69,7 @@ workflows:
     jobs:
       - uptime-check
 
-  schedule-uptime-check-5:
+  schedule-custom-0530-IST:
     triggers:
       - schedule:
           cron: "30 23 * * *"
@@ -64,10 +79,20 @@ workflows:
     jobs:
       - uptime-check
 
-  schedule-uptime-check-6:
+  schedule-custom-1130-IST:
     triggers:
       - schedule:
           cron: "30 5 * * *"
+          filters:
+            branches:
+              only: main
+    jobs:
+      - uptime-check
+
+  schedule-custom-1430-IST:
+    triggers:
+      - schedule:
+          cron: "30 8 * * *"
           filters:
             branches:
               only: main
