@@ -1,12 +1,20 @@
 const axios = require('axios');
+const dotenv = require("dotenv");
+dotenv.config();
 const Activity = require('../models/Activity');
 const { sendPingFailureAlert } = require('../utils/mailer');
+const connectDB = require("../config/db");
+
 
 // Get the API key and monitor ID from environment variables (GitHub Secrets)
+
+connectDB();
 const UPTIME_ROBOT_API_KEY = process.env.UPTIME_ROBOT_API_KEY;
 const MONITOR_ID = process.env.MONITOR_ID;
 const GET_MONITOR_URL = 'https://api.uptimerobot.com/v2/getMonitors';
 const EDIT_MONITOR_URL = 'https://api.uptimerobot.com/v2/editMonitor';
+
+const SERVER_PING_URL = 'https://wccbackendoffl.onrender.com/ping';
 
 async function checkUptime() {
   const now = new Date();
@@ -90,12 +98,70 @@ async function checkUptime() {
   // Check recent user activity
   try {
     const activity = await Activity.findOne({ name: 'activityStatus' });
+
     if (activity && activity.lastActive) {
       const minutesSinceLastActive = (now - new Date(activity.lastActive)) / (1000 * 60);
-      if (minutesSinceLastActive < 10) {
-        console.log('🟢 Skipping check due to recent user activity.');
+      console.log(`Minutes since last activity: ${minutesSinceLastActive}`);
+
+      // If the last activity was more than 14 minutes ago, initiate the ping
+      if (minutesSinceLastActive > 14) {
+        console.log('❌ No user activity detected for 14+ minutes. Initiating ping check...');
+        sendPingFailureAlert(
+          'WCC Server Inactivity',
+          'No user activity detected. Server is being pinged.'
+        );
+
+        // Ping the /ping endpoint to check server availability without waiting
+        axios.get(SERVER_PING_URL)
+          .then(pingResponse => {
+            if (pingResponse.status === 200 && pingResponse.data === 'pong') {
+              console.log('✅ Server is responding to ping!');
+            } else {
+              console.error('❌ Unexpected ping response:', pingResponse.data);
+              sendPingFailureAlert(
+                'WCC Server Ping Error',
+                `Unexpected response from ping endpoint: ${pingResponse.data}`
+              );
+            }
+          })
+          .catch(pingError => {
+            console.error('❌ Failed to ping server:', pingError.message);
+            sendPingFailureAlert(
+              'WCC Server Ping Error',
+              `Failed to ping the server: ${pingError.message}`
+            );
+          });
+      } else {
+        console.log('🟢 User activity detected recently, skipping ping.');
         return;
       }
+    } else {
+      console.log('❌ No activity record found. Initiating ping check...');
+      sendPingFailureAlert(
+        'WCC Server Inactivity',
+        'No activity record found. Server is being pinged.'
+      );
+
+      // Ping the /ping endpoint to check server availability without waiting
+      axios.get(SERVER_PING_URL)
+        .then(pingResponse => {
+          if (pingResponse.status === 200 && pingResponse.data === 'pong') {
+            console.log('✅ Server is responding to ping!');
+          } else {
+            console.error('❌ Unexpected ping response:', pingResponse.data);
+            sendPingFailureAlert(
+              'WCC Server Ping Error',
+              `Unexpected response from ping endpoint: ${pingResponse.data}`
+            );
+          }
+        })
+        .catch(pingError => {
+          console.error('❌ Failed to ping server:', pingError.message);
+          sendPingFailureAlert(
+            'WCC Server Ping Error',
+            `Failed to ping the server: ${pingError.message}`
+          );
+        });
     }
   } catch (err) {
     console.error('❌ Activity check failed:', err.message);
@@ -123,6 +189,13 @@ async function checkUptime() {
         console.log('✅ Server is UP and responding.');
       } else {
         console.error(`❌ Server is DOWN! Monitor status: ${monitorStatus}`);
+        axios.get(SERVER_PING_URL)
+        .then(() => {
+          console.log('Server pinged successfully (async call).');
+        })
+        .catch((pingError) => {
+          console.error('❌ Failed to ping server:', pingError.message);
+        });
         sendPingFailureAlert(
           'WCC Server Ping Failed',
           `Server is down. UptimeRobot monitor status: ${monitorStatus}`
