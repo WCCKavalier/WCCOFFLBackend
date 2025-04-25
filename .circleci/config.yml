@@ -1,0 +1,75 @@
+version: 2.1
+
+executors:
+  node-executor:
+    docker:
+      - image: cimg/node:20.10.0
+
+jobs:
+  uptime-check:
+    executor: node-executor
+    steps:
+      - checkout
+      - run: npm install
+      - run: node scripts/uptime-check.js
+
+workflows:
+  schedule-uptime-check-1:
+    triggers:
+      - schedule:
+          cron: "*/45 * * * *"  # every 45 minutes (closest to your 14-minute goal on CircleCI)
+          filters:
+            branches:
+              only: main
+    jobs:
+      - uptime-check
+
+  schedule-uptime-check-2:
+    triggers:
+      - schedule:
+          cron: "40 8 * * *"
+          filters:
+            branches:
+              only: main
+    jobs:
+      - uptime-check
+
+  schedule-uptime-check-3:
+    triggers:
+      - schedule:
+          cron: "0 9 * * *"
+          filters:
+            branches:
+              only: main
+    jobs:
+      - uptime-check
+
+  schedule-uptime-check-4:
+    triggers:
+      - schedule:
+          cron: "30 19 * * *"
+          filters:
+            branches:
+              only: main
+    jobs:
+      - uptime-check
+
+  schedule-uptime-check-5:
+    triggers:
+      - schedule:
+          cron: "30 23 * * *"
+          filters:
+            branches:
+              only: main
+    jobs:
+      - uptime-check
+
+  schedule-uptime-check-6:
+    triggers:
+      - schedule:
+          cron: "30 5 * * *"
+          filters:
+            branches:
+              only: main
+    jobs:
+      - uptime-check
