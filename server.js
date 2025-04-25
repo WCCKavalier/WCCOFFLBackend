@@ -20,8 +20,8 @@ const Activity = require('./models/Activity.js');
 dotenv.config();
 connectDB();
 
-const job = require('./cron.js');
-job.start();
+// const job = require('./cron.js');
+// job.start();
 const allowedOrigins = [
   "http://localhost:3000",
   "https://wcc-kava.vercel.app",
