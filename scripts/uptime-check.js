@@ -1,14 +1,14 @@
-const cron = require('cron');
 const axios = require('axios');
 const Activity = require('./models/Activity');
 const { sendPingFailureAlert } = require('./utils/mailer');
 
+// Get the API key and monitor ID from environment variables (GitHub Secrets)
 const UPTIME_ROBOT_API_KEY = process.env.UPTIME_ROBOT_API_KEY;
 const MONITOR_ID = process.env.MONITOR_ID;
 const GET_MONITOR_URL = 'https://api.uptimerobot.com/v2/getMonitors';
 const EDIT_MONITOR_URL = 'https://api.uptimerobot.com/v2/editMonitor';
 
-const job = new cron.CronJob('*/14 * * * *', async function () {
+async function checkUptime() {
   const now = new Date();
   const currentHour = now.getHours();
   const currentDay = now.getDay();
@@ -93,7 +93,7 @@ const job = new cron.CronJob('*/14 * * * *', async function () {
     if (activity && activity.lastActive) {
       const minutesSinceLastActive = (now - new Date(activity.lastActive)) / (1000 * 60);
       if (minutesSinceLastActive < 10) {
-        console.log('🟢 Cron skipped: Recent user activity within 10 mins.');
+        console.log('🟢 Skipping check due to recent user activity.');
         return;
       }
     }
@@ -142,6 +142,7 @@ const job = new cron.CronJob('*/14 * * * *', async function () {
       `UptimeRobot API request failed: ${err.message}`
     );
   }
-});
+}
 
-module.exports = job;
+// Run the uptime check
+checkUptime();
