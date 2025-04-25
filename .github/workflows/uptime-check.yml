@@ -3,12 +3,11 @@ name: Uptime Check Every 14 Minutes
 on:
   schedule:
     - cron: '*/45 * * * *'  # Runs every 14 minutes (UTC)
-    - cron: '30 8 * * *' 
+    - cron: '40 8 * * *' 
     - cron: '0 9 * * *' 
     - cron: '30 19 * * *'  
     - cron: '30 23 * * *'  
     - cron: '30 5 * * *'   
-    - cron: '30 8 * * *'
   workflow_dispatch:
 
 jobs:
