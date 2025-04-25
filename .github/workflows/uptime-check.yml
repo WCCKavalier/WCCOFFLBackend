@@ -2,7 +2,7 @@ name: Uptime Check Every 14 Minutes
 
 on:
   schedule:
-    - cron: '*/1 * * * *'  # Runs every 14 minutes (UTC)
+    - cron: '*/14 * * * *'  # Runs every 14 minutes (UTC)
   workflow_dispatch:
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install dependencies
         run: npm install
