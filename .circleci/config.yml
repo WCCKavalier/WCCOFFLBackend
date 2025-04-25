@@ -1,98 +1,43 @@
 version: 2.1
 
-executors:
-  node-executor:
-    docker:
-      - image: cimg/node:20.0
-    working_directory: ~/project
-
 jobs:
   uptime-check:
-    executor: node-executor
+    docker:
+      - image: cimg/node:20.0
     steps:
       - checkout
       - run:
-          name: Install dependencies
+          name: Install Dependencies
           command: npm install
       - run:
-          name: Run Uptime Check
+          name: Run Uptime Check Script
           command: node scripts/uptime-check.js
 
 workflows:
-  schedule-uptime-check-00:
+  scheduled-uptime-check:
     triggers:
       - schedule:
-          cron: "0 * * * *"
+          cron: "0 * * * *"       # Every hour (UTC)
           filters:
             branches:
               only: main
-    jobs:
-      - uptime-check
-
-  schedule-uptime-check-15:
-    triggers:
       - schedule:
-          cron: "15 * * * *"
+          cron: "30 19 * * *"     # 1:00 AM IST
           filters:
             branches:
               only: main
-    jobs:
-      - uptime-check
-
-  schedule-uptime-check-30:
-    triggers:
       - schedule:
-          cron: "30 * * * *"
+          cron: "30 23 * * *"     # 5:00 AM IST
           filters:
             branches:
               only: main
-    jobs:
-      - uptime-check
-
-  schedule-uptime-check-45:
-    triggers:
       - schedule:
-          cron: "45 * * * *"
+          cron: "30 5 * * *"      # 11:00 AM IST
           filters:
             branches:
               only: main
-    jobs:
-      - uptime-check
-
-   schedule-custom-0130-IST:
-    triggers:
       - schedule:
-          cron: "30 19 * * *"
-          filters:
-            branches:
-              only: main
-    jobs:
-      - uptime-check
-
-  schedule-custom-0530-IST:
-    triggers:
-      - schedule:
-          cron: "30 23 * * *"
-          filters:
-            branches:
-              only: main
-    jobs:
-      - uptime-check
-
-  schedule-custom-1130-IST:
-    triggers:
-      - schedule:
-          cron: "30 5 * * *"
-          filters:
-            branches:
-              only: main
-    jobs:
-      - uptime-check
-
-  schedule-custom-1430-IST:
-    triggers:
-      - schedule:
-          cron: "30 8 * * *"
+          cron: "30 8 * * *"      # 2:00 PM IST
           filters:
             branches:
               only: main
