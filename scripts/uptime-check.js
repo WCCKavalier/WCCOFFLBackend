@@ -1,6 +1,6 @@
 const axios = require('axios');
-const Activity = require('./models/Activity');
-const { sendPingFailureAlert } = require('./utils/mailer');
+const Activity = require('../models/Activity');
+const { sendPingFailureAlert } = require('../utils/mailer');
 
 // Get the API key and monitor ID from environment variables (GitHub Secrets)
 const UPTIME_ROBOT_API_KEY = process.env.UPTIME_ROBOT_API_KEY;
