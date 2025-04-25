@@ -3,6 +3,7 @@ const dotenv = require("dotenv");
 const mongoose = require('mongoose');
 dotenv.config();
 const Activity = require('../models/Activity');
+const JobLog = require('../models/JobLog');
 const { sendPingFailureAlert } = require('../utils/mailer');
 const connectDB = require("../config/db");
 
@@ -15,18 +16,32 @@ const EDIT_MONITOR_URL = 'https://api.uptimerobot.com/v2/editMonitor';
 
 const SERVER_PING_URL = 'https://wccbackendoffl.onrender.com/ping';
 
+async function logJobRun(status, message = '') {
+  try {
+    await JobLog.create({ status, message });
+    console.log(`📝 Logged job run: ${status}`);
+  } catch (err) {
+    console.error('❌ Failed to log job run:', err.message);
+  }
+}
+
 async function checkUptime() {
   const now = new Date();
-  const currentHour = now.getHours();
-  const currentDay = now.getDay();
+  const adjustedTime = new Date(now.getTime() + (5 * 60 + 30) * 60000); // Add 5 hours 30 minutes in milliseconds
 
-  // Maintenance: Saturday 1 AM - 5 AM
+  const currentHour = adjustedTime.getHours();
+  const currentDay = adjustedTime.getDay();
+
+  // Maintenance: Saturday 1 AM - 5 AM (GMT+5:30)
   const inMaintenanceWindow = currentDay === 6 && currentHour >= 1 && currentHour < 5;
 
-  // Scheduled downtime: Tue–Thu 11 AM - 2 PM
+  // Scheduled downtime: Tue–Thu 11 AM - 2 PM (GMT+5:30)
   const inScheduledDowntime = (currentDay >= 2 && currentDay <= 4) && currentHour >= 11 && currentHour < 14;
 
   const shouldPause = inMaintenanceWindow || inScheduledDowntime;
+
+  console.log(`Current Time (GMT+5:30): ${adjustedTime}`);
+  console.log(`Should pause monitor: ${shouldPause}`);
 
   // Get current monitor status
   let monitorStatus = null;
@@ -50,6 +65,7 @@ async function checkUptime() {
     }
   } catch (err) {
     console.error('❌ Failed to fetch monitor status:', err.message);
+    await logJobRun('failure', 'Uptime check failed.');
     return cleanExit(1);
   }
 
@@ -68,6 +84,7 @@ async function checkUptime() {
         }
       );
       console.log('⏸ Monitor paused due to maintenance/downtime window.');
+      await logJobRun('success', 'Uptime check completed successfully.');
       return cleanExit(0);
     } else if (!shouldPause && monitorStatus === 9) {
       await axios.post(
@@ -85,6 +102,7 @@ async function checkUptime() {
     }
   } catch (err) {
     console.error('❌ Failed to change monitor status:', err.message);
+    await logJobRun('failure', 'Uptime check failed.');
     return cleanExit(1);
   }
 
@@ -201,7 +219,8 @@ async function checkUptime() {
   }
 
   // Clean exit
-  cleanExit(0);
+  await logJobRun('success', 'Uptime check completed successfully.');
+  return cleanExit(0);
 }
 
 async function cleanExit(code) {
