@@ -24,7 +24,8 @@ const job = require('./cron.js');
 job.start();
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://wcc-kava.vercel.app"
+  "https://wcc-kava.vercel.app",
+  "https://uptimerobot.com"
 ];
 function corsOriginCheck(origin, callback) {
   const cleanOrigin = origin?.replace(/\/$/, ""); // remove trailing slash
