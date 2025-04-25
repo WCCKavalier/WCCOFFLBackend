@@ -25,7 +25,8 @@ connectDB();
 const allowedOrigins = [
   "http://localhost:3000",
   "https://wcc-kava.vercel.app",
-  "https://uptimerobot.com"
+  "https://uptimerobot.com",
+  "https://api.github.com",
 ];
 function corsOriginCheck(origin, callback) {
   const cleanOrigin = origin?.replace(/\/$/, ""); // remove trailing slash
