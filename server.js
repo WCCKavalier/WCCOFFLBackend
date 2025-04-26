@@ -89,18 +89,22 @@ app.use("/api/messages", messageRoutes(io));
 // Handle socket.io connections
 io.on("connection", (socket) => {
   console.log("🔌 A user connected");
+  const now = new Date();
+  const adjustedTime = new Date(now.getTime() + (5 * 60 + 30) * 60000);
   Activity.updateOne(
     { name: 'activityStatus' },
-    { lastActive: new Date(), active: true },
+    { lastActive: adjustedTime, active: true },
     { upsert: true }
   ).catch(err => console.error('Socket connect activity error:', err.message));
 
   socket.on("sendMessage", async (data) => {
     try {
       const { username, message } = data;
+      const now = new Date();
+      const adjustedTime = new Date(now.getTime() + (5 * 60 + 30) * 60000);
       Activity.updateOne(
         { name: 'activityStatus' },
-        { lastActive: new Date(), active: true },
+        { lastActive: adjustedTime, active: true },
         { upsert: true }
       ).catch((err) => console.error('Activity update failed:', err.message));
       const newMessage = new Message({ username, message });
