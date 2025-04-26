@@ -62,9 +62,11 @@ app.use(cors({
 app.use(express.json());
 app.use(async (req, res, next) => {
   try {
+    const now = new Date();
+    const adjustedTime = new Date(now.getTime() + (5 * 60 + 30) * 60000);
     await Activity.updateOne(
       { name: 'activityStatus' },
-      { lastActive: new Date(), active: true },
+      { lastActive: adjustedTime, active: true },
       { upsert: true }
     );
   } catch (err) {
