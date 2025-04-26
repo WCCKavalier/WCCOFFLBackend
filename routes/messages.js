@@ -29,11 +29,13 @@ module.exports = function(io) {
 
   router.post("/", authMiddleware, async (req, res) => {
     try {
+      const now = new Date();
+      const adjustedTime = new Date(now.getTime() + (5 * 60 + 30) * 60000);
         const { username, message } = req.body;
         const newMessage = new Message({
             username,
             message,
-            timestamp: new Date()
+            timestamp: adjustedTime
         });
 
         await newMessage.save();
