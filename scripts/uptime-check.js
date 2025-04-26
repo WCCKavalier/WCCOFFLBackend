@@ -84,7 +84,7 @@ async function checkUptime() {
         }
       );
       console.log('⏸ Monitor paused due to maintenance/downtime window.');
-      await logJobRun('success', 'Uptime check completed successfully.');
+      await logJobRun('success', '⏸ Monitor paused due to maintenance/downtime window');
       return cleanExit(0);
     } else if (!shouldPause && monitorStatus === 9) {
       await axios.post(
@@ -219,7 +219,7 @@ async function checkUptime() {
   }
 
   // Clean exit
-  await logJobRun('success', 'Uptime check completed successfully.');
+  await logJobRun('success', 'Server check completed successfully.');
   return cleanExit(0);
 }
 
