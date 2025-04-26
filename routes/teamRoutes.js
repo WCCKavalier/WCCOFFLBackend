@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Team = require("../models/Team");
 const SeriesHistory = require("../models/SeriesHistory");
+const { startSession } = require("mongoose");
 
 // Update Points API (Starts series if first win)
 router.put('/update-points', async (req, res) => {
@@ -18,8 +19,10 @@ router.put('/update-points', async (req, res) => {
 
         // Set start date only if it's the first win in the series
         if (winner.points === 0 && loser.points === 0) {
-            winner.startDate = new Date();
-            loser.startDate = new Date();
+          const start = new Date();
+          const startDay = new Date(start.getTime() + (5 * 60 + 30) * 60000);
+            winner.startDate = startDay;
+            loser.startDate = startDay;
         }
 
         // Update points and scores
@@ -125,7 +128,8 @@ router.post("/end-series", async (req, res) => {
             winningTeamName = "Draw";
         }
 
-        const endDate = new Date();
+        const end = new Date();
+        const endDate = new Date(end.getTime() + (5 * 60 + 30) * 60000);
         const formattedDate = formatDate(team1.startDate); 
 
         // Save previous series in separate collection
