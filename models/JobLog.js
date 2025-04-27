@@ -1,7 +1,12 @@
 const mongoose = require('mongoose');
+const moment = require('moment-timezone');
 
 const JobLogSchema = new mongoose.Schema({
-  timestamp: { type: Date, default: Date.now,expires: 60 * 60 * 24 * 30 },
+  timestamp: {
+    type: String,
+    default: () => moment.tz("Asia/Kolkata").format('YYYY-MM-DD HH:mm:ss'),  // Store as formatted IST string
+    expires: 60 * 60 * 24 * 30,
+  },
   status: { type: String, enum: ['success', 'failure'], required: true },
   message: { type: String },
 });
