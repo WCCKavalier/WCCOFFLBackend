@@ -41,8 +41,8 @@ async function checkUptime() {
 
   console.log(`Current Time (IST): Hour=${currentHour}, Day=${currentDay}`);
 
-  const inMaintenanceWindow = currentDay === 6 && currentHour >= 1 && currentHour < 5;
-  const inScheduledDowntime = (currentDay >= 2 && currentDay <= 4) && currentHour >= 11 && currentHour < 14;
+  const inMaintenanceWindow = (currentDay >= 0 && currentDay <= 5) && (currentHour >= 1 && currentHour < 5);
+  const inScheduledDowntime = (currentDay >= 2 && currentDay <= 4) && (currentHour >= 11 && currentHour < 14);
 
   let shouldPause = inMaintenanceWindow || inScheduledDowntime;
 
