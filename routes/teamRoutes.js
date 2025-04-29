@@ -32,6 +32,9 @@ router.put('/update-points', async (req, res) => {
         if (winner.score.length > 15) winner.score.shift();
         if (loser.score.length > 15) loser.score.shift();
 
+        winner.isRevert = true;
+        loser.isRevert = false;
+
         await winner.save();
         await loser.save();
 
@@ -86,6 +89,9 @@ router.put("/revert", async (req, res) => {
         lastWinner.points = Math.max(0, lastWinner.points - 1);
         lastWinner.score.pop();
         lastLoser.score.pop();
+
+        lastWinner.isRevert = false;
+        lastLoser.isRevert = false;
 
         await lastWinner.save();
         await lastLoser.save();
@@ -158,11 +164,11 @@ router.post("/end-series", async (req, res) => {
         await Promise.all([
             Team.findOneAndUpdate(
                 { teamId: "team1" },
-                { points: 0, score: Array(15).fill("-"), startDate: null }
+                { points: 0, score: Array(15).fill("-"), startDate: null , isRevert: false}
             ),
             Team.findOneAndUpdate(
                 { teamId: "team2" },
-                { points: 0, score: Array(15).fill("-"), startDate: null }
+                { points: 0, score: Array(15).fill("-"), startDate: null, isRevert: false }
             )
         ]);
 
