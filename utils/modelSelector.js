@@ -4,24 +4,21 @@ async function fetchModels() {
   try {
     console.log("🔍 Fetching models...");
 
-    // Fetch available models from the Gemini API
     const response = await axios.get(`https://generativelanguage.googleapis.com/v1/models?key=${process.env.GEMINI_API_KEY}`);
     
-    // Filter models: Keep only active/available models (excluding deprecated and non-free ones)
     const availableModels = response.data.models
       .map(model => model.name.split('/').pop())
       .filter(name => {
-        // Exclude deprecated models by not including certain known patterns
-        const isDeprecated = name.includes('deprecated') || name.includes('lite') || name.includes('embed');
-        return !isDeprecated;
+        const isDeprecated = name.includes('deprecated') || name.includes('embed') || name.includes('tuning');
+        const isInternalVariant = /\d{3}/.test(name); // filters '001', '002', etc.
+        return !isDeprecated && !isInternalVariant;
       })
-      .reverse(); // Reverse the list to prioritize latest models first
-    
+      .reverse();
+
     if (availableModels.length === 0) {
       throw new Error("No models found.");
     }
-
-    // console.log("✅ Models fetched:", availableModels);
+    console.log(availableModels);
     return availableModels;
   } catch (err) {
     console.error("❌ Error fetching models from Gemini API:", err.message);
@@ -29,26 +26,27 @@ async function fetchModels() {
   }
 }
 
-async function getCurrentModel() {
+async function getModelListWithDefaultFirst() {
   const availableModels = await fetchModels();
-  
-  // Always use the best model (e.g., gemini-2.0-flash) first, if available
-  const primaryModel = 'gemini-2.0-flash';
-  if (availableModels.includes(primaryModel)) {
-    return primaryModel;
-  }
 
-  // Otherwise, return the first available model
-  return availableModels[0];
+  const defaultModel = 'gemini-2.0-flash';
+  const filteredModels = availableModels.filter(model => model !== defaultModel);
+
+  // Put default model at front
+  const orderedModels = [defaultModel, ...filteredModels.filter(Boolean)];
+
+  return orderedModels;
 }
 
 function moveToNextModel(currentIndex, availableModels) {
-  // Simple logic to rotate to the next model (looping around)
+  if (!Array.isArray(availableModels) || availableModels.length === 0) {
+    throw new Error("No available models to switch to.");
+  }
   return (currentIndex + 1) % availableModels.length;
 }
 
 module.exports = {
   fetchModels,
-  getCurrentModel,
+  getModelListWithDefaultFirst,
   moveToNextModel,
 };

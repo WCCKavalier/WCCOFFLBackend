@@ -3,7 +3,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const Match = require("../models/ScoreCard");
 const PlayerStats = require("../models/PlayerStats");
 const { sendNewPlayerEmail } = require("./mailer");
-const { getCurrentModel, moveToNextModel, fetchModels } = require('./modelSelector');
+const { getModelListWithDefaultFirst, moveToNextModel, fetchModels } = require('./modelSelector');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -12,10 +12,9 @@ function normalizeTeamName(name) {
 }
 
 async function extractDataWithAI(text) {
-  await fetchModels(); // make sure models are fetched first
-
-  let modelName = await getCurrentModel();
-  let model = genAI.getGenerativeModel({ model: modelName });
+  const availableModels = await getModelListWithDefaultFirst();
+  let currentIndex = 0;
+  let retries = availableModels.length;
 
   const prompt = `
 Parse this STUMPS cricket match report and return JSON in this format:
@@ -57,32 +56,42 @@ Important:
 """${text}"""
   `;
 
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let raw = response.text().trim();
+  while (retries > 0) {
+    const modelName = availableModels[currentIndex];
+    console.log(`⚙️ Trying model: ${modelName}`);
 
-    if (raw.startsWith("```") || raw.includes("```json")) {
-      raw = raw.replace(/```json/i, "").replace(/```/, "").trim();
-    }
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      let raw = response.text().trim();
 
-    return JSON.parse(raw);
-  } catch (err) {
-    console.error(`❌ Gemini Error on model ${modelName}:`, err.message);
+      if (raw.startsWith("```") || raw.includes("```json")) {
+        raw = raw.replace(/```json/i, "").replace(/```/, "").trim();
+      }
 
-    if (
-      err.message.includes('overloaded') ||
-      err.message.includes('503') ||
-      err.message.includes('404') ||
-      err.message.toLowerCase().includes('not found')
-    ) {
-      console.warn(`⚠️ Model ${modelName} failed (overload/deprecated/not found). Switching to next model...`);
-      moveToNextModel(); // move to next model
-      return extractDataWithAI(text); // retry recursively
-    } else {
-      throw err; // other errors are thrown up
+      return JSON.parse(raw);
+    } catch (err) {
+      console.error(`❌ Gemini Error on model ${modelName}:`, err.message);
+
+      const isRecoverable = (
+        err.message.includes('503') ||
+        err.message.includes('overloaded') ||
+        err.message.includes('not found') ||
+        err.message.includes('404')
+      );
+
+      if (isRecoverable) {
+        console.warn(`⚠️ Model ${modelName} failed. Trying next model...`);
+        currentIndex = moveToNextModel(currentIndex, availableModels);
+        retries--;
+      } else {
+        throw err; // unrecoverable error — stop immediately
+      }
     }
   }
+
+  throw new Error("❌ All Gemini models failed after retries.");
 }
 
 
@@ -210,11 +219,9 @@ exports.validateStumpsReport = async (req, res) => {
     const fileBuffer = req.file.buffer;
     const data = await pdfParse(fileBuffer);
 
-    // Ensure models are fetched first
-    await fetchModels();
-
-    let modelName = await getCurrentModel();
-    const model = genAI.getGenerativeModel({ model: modelName });
+    const availableModels = await getModelListWithDefaultFirst();
+    let currentIndex = 0;
+    let retries = availableModels.length;
 
     const prompt = `
 You are verifying a cricket match PDF.
@@ -224,29 +231,45 @@ Is this match report created from the STUMPS cricket scoring app?
 """${data.text}"""
     `;
 
-    const result = await model.generateContent(prompt);
-    const responseText = (await result.response.text()).trim().toUpperCase();
+    while (retries > 0) {
+      const modelName = availableModels[currentIndex];
+      console.log(`🔍 Validating STUMPS report using model: ${modelName}`);
 
-    if (responseText === 'YES') {
-      return res.json({ isValid: true });
-    } else {
-      return res.status(400).json({ isValid: false, error: "Not a STUMPS match report." });
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        const responseText = (await result.response.text()).trim().toUpperCase();
+
+        if (responseText === 'YES') {
+          return res.json({ isValid: true });
+        } else {
+          return res.status(400).json({ isValid: false, error: "Not a STUMPS match report." });
+        }
+
+      } catch (err) {
+        console.error(`❌ Gemini error on model ${modelName}:`, err.message);
+
+        const isRecoverable =
+          err.message.includes('503') ||
+          err.message.includes('overloaded') ||
+          err.message.includes('404') ||
+          err.message.toLowerCase().includes('not found');
+
+        if (isRecoverable) {
+          console.warn(`⚠️ Model ${modelName} failed. Trying next model...`);
+          currentIndex = moveToNextModel(currentIndex, availableModels);
+          retries--;
+        } else {
+          return res.status(500).json({ error: "Failed to validate PDF due to AI error." });
+        }
+      }
     }
+
+    return res.status(500).json({ error: "All Gemini models failed to validate the report." });
+
   } catch (err) {
-    console.error("❌ STUMPS Check Error:", err.message);
-
-    if (
-      err.message.includes('503') || 
-      err.message.includes('overloaded') || 
-      err.message.includes('404') || 
-      err.message.includes('not found')
-    ) {
-      console.warn(`⚠️ Model issue detected (${err.message}), switching to next model...`);
-      moveToNextModel(); // Move to the next model
-      return exports.validateStumpsReport(req, res); // Retry
-    } else {
-      res.status(500).json({ error: "Failed to validate PDF." });
-    }
+    console.error("❌ STUMPS Check Fatal Error:", err.message);
+    return res.status(500).json({ error: "Unexpected error validating PDF." });
   }
 };
 exports.playerstat = async (req, res) => {
@@ -352,11 +375,9 @@ exports.extractPlayerNames = async (req, res) => {
     const fileBuffer = req.file.buffer;
     const data = await pdfParse(fileBuffer);
 
-    // Ensure models are fetched first
-    await fetchModels();
-
-    let modelName = await getCurrentModel();
-    const model = genAI.getGenerativeModel({ model: modelName });
+    const availableModels = await getModelListWithDefaultFirst();
+    let currentIndex = 0;
+    let retries = availableModels.length;
 
     const prompt = `
 You are analyzing a cricket match report from the STUMPS app.
@@ -373,31 +394,45 @@ Match report text:
 """${data.text}"""
     `;
 
-    const result = await model.generateContent(prompt);
-    let textOutput = (await result.response.text()).trim();
+    while (retries > 0) {
+      const modelName = availableModels[currentIndex];
+      console.log(`🔍 Extracting player names using model: ${modelName}`);
 
-    // Remove markdown formatting like ```json ... ```
-    textOutput = textOutput.replace(/```json|```/g, '').trim();
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        let textOutput = (await result.response.text()).trim();
 
-    // Attempt to parse
-    const playerNames = JSON.parse(textOutput);
+        // Clean markdown formatting if present
+        textOutput = textOutput.replace(/```json|```/gi, '').trim();
 
-    res.json({ playerNames });
-  } catch (err) {
-    console.error("❌ Error extracting player names via Gemini:", err.message);
+        const playerNames = JSON.parse(textOutput);
+        return res.json({ playerNames });
 
-    if (
-      err.message.includes('503') || // overloaded
-      err.message.includes('overloaded') ||
-      err.message.includes('404') ||  // model not found
-      err.message.includes('not found')
-    ) {
-      console.warn(`⚠️ Model issue detected (${err.message}), switching to next model...`);
-      moveToNextModel(); // Move to next model
-      return exports.extractPlayerNames(req, res); // Retry
-    } else {
-      res.status(500).json({ error: "Failed to extract player names." });
+      } catch (err) {
+        console.error(`❌ Gemini error on model ${modelName}:`, err.message);
+
+        const isRecoverable =
+          err.message.includes('503') ||
+          err.message.includes('overloaded') ||
+          err.message.includes('404') ||
+          err.message.toLowerCase().includes('not found');
+
+        if (isRecoverable) {
+          console.warn(`⚠️ Model ${modelName} failed. Trying next model...`);
+          currentIndex = moveToNextModel(currentIndex, availableModels);
+          retries--;
+        } else {
+          return res.status(500).json({ error: "Failed to extract player names." });
+        }
+      }
     }
+
+    return res.status(500).json({ error: "All Gemini models failed to extract player names." });
+
+  } catch (err) {
+    console.error("❌ PDF Parse or system error:", err.message);
+    return res.status(500).json({ error: "Unexpected error extracting player names." });
   }
 };
 
