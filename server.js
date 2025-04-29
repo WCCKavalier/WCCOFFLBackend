@@ -25,8 +25,6 @@ connectDB();
 const allowedOrigins = [
   "http://localhost:3000",
   "https://wcc-kava.vercel.app",
-  "https://uptimerobot.com",
-  "https://api.github.com",
 ];
 function corsOriginCheck(origin, callback) {
   const cleanOrigin = origin?.replace(/\/$/, ""); // remove trailing slash
@@ -69,6 +67,19 @@ app.use(async (req, res, next) => {
       { lastActive: adjustedTime, active: true },
       { upsert: true }
     );
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const ip = req.headers['x-forwarded-for'] || req.ip;
+
+    // If NOT from Better Uptime Bot, log in console
+    if (!userAgent.includes('Better Uptime Bot')) {
+      console.log(`🚨 Suspicious Ping Detected! 
+        URL: ${req.originalUrl}
+        Method: ${req.method}
+        User-Agent: ${userAgent}
+        IP: ${ip}
+        Time: ${adjustedTime.toISOString()}
+      `);
+    }
   } catch (err) {
     console.error('⚠️ Failed to update activity log:', err.message);
   }
