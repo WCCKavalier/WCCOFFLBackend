@@ -3,6 +3,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const Match = require("../models/ScoreCard");
 const PlayerStats = require("../models/PlayerStats");
 const { sendNewPlayerEmail } = require("./mailer");
+const { getCurrentModel, moveToNextModel, fetchModels } = require('./modelSelector');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -11,7 +12,10 @@ function normalizeTeamName(name) {
 }
 
 async function extractDataWithAI(text) {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  await fetchModels(); // make sure models are fetched first
+
+  let modelName = await getCurrentModel();
+  let model = genAI.getGenerativeModel({ model: modelName });
 
   const prompt = `
 Parse this STUMPS cricket match report and return JSON in this format:
@@ -42,25 +46,45 @@ Parse this STUMPS cricket match report and return JSON in this format:
     }
   ]
 }
-Only return valid JSON without markdown or formatting.
+Important:
+- **Extract and preserve names exactly as written in the text, including spaces, capitalization, and any middle names.**
+- **If any batsman or bowler names appear to be merged without spaces**, intelligently detect common first names and surnames, and restore spaces between them. For example, if "AadhavanSridharan" is detected, split it into "Aadhavan Sridharan".
+- **Do not merge initials with names**: If there are initials in the names (e.g., "Julie B Madhu"), preserve the space between the initials and the last name.
+- **For 'outDesc'**, when mentioning players, ensure the player names are **exactly as extracted** (including spaces and capitalization). 
+- If a name appears in a dismissal description (e.g., run-out, caught), match the **full name** carefully and preserve exact spacing and capitalization.
+- If you find minor mistakes in outDesc, such as missing spaces or wrong letter cases, **correct them based on the batsman or bowler names**.
+- Return only valid JSON, no markdown formatting.
 """${text}"""
-`;
-
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  let raw = response.text().trim();
-
-  if (raw.startsWith("```") || raw.includes("```json")) {
-    raw = raw.replace(/```json/i, "").replace(/```/, "").trim();
-  }
+  `;
 
   try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let raw = response.text().trim();
+
+    if (raw.startsWith("```") || raw.includes("```json")) {
+      raw = raw.replace(/```json/i, "").replace(/```/, "").trim();
+    }
+
     return JSON.parse(raw);
   } catch (err) {
-    console.error("❌ Failed to parse Gemini JSON:\n", raw);
-    throw err;
+    console.error(`❌ Gemini Error on model ${modelName}:`, err.message);
+
+    if (
+      err.message.includes('overloaded') ||
+      err.message.includes('503') ||
+      err.message.includes('404') ||
+      err.message.toLowerCase().includes('not found')
+    ) {
+      console.warn(`⚠️ Model ${modelName} failed (overload/deprecated/not found). Switching to next model...`);
+      moveToNextModel(); // move to next model
+      return extractDataWithAI(text); // retry recursively
+    } else {
+      throw err; // other errors are thrown up
+    }
   }
 }
+
 
 async function updatePlayerStatsFromMatch(match) {
   for (const inning of match.innings) {
@@ -186,14 +210,19 @@ exports.validateStumpsReport = async (req, res) => {
     const fileBuffer = req.file.buffer;
     const data = await pdfParse(fileBuffer);
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    // Ensure models are fetched first
+    await fetchModels();
+
+    let modelName = await getCurrentModel();
+    const model = genAI.getGenerativeModel({ model: modelName });
+
     const prompt = `
 You are verifying a cricket match PDF.
 
 Based on the text below, answer only "YES" or "NO":
 Is this match report created from the STUMPS cricket scoring app?
 """${data.text}"""
-`;
+    `;
 
     const result = await model.generateContent(prompt);
     const responseText = (await result.response.text()).trim().toUpperCase();
@@ -204,8 +233,20 @@ Is this match report created from the STUMPS cricket scoring app?
       return res.status(400).json({ isValid: false, error: "Not a STUMPS match report." });
     }
   } catch (err) {
-    console.error("❌ STUMPS Check Error:", err);
-    res.status(500).json({ error: "Failed to validate PDF." });
+    console.error("❌ STUMPS Check Error:", err.message);
+
+    if (
+      err.message.includes('503') || 
+      err.message.includes('overloaded') || 
+      err.message.includes('404') || 
+      err.message.includes('not found')
+    ) {
+      console.warn(`⚠️ Model issue detected (${err.message}), switching to next model...`);
+      moveToNextModel(); // Move to the next model
+      return exports.validateStumpsReport(req, res); // Retry
+    } else {
+      res.status(500).json({ error: "Failed to validate PDF." });
+    }
   }
 };
 exports.playerstat = async (req, res) => {
@@ -311,16 +352,22 @@ exports.extractPlayerNames = async (req, res) => {
     const fileBuffer = req.file.buffer;
     const data = await pdfParse(fileBuffer);
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    // Ensure models are fetched first
+    await fetchModels();
+
+    let modelName = await getCurrentModel();
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     const prompt = `
 You are analyzing a cricket match report from the STUMPS app.
 Your task is to extract only the **player names** who played in the match from the following report.
 
-Rules:
-- Return only the names in a JSON array format like ["Player One", "Player Two", ...].
-- Do not return anything else like team names or commentary.
+Important rules:
+- Return the names in a JSON array format like ["Player One", "Player Two", ...].
+- **Restore missing spaces** if names appear merged together, based on typical cricket naming patterns and styles seen elsewhere in the report.
+- Preserve the **original spaces** and **capitalization** of the names exactly as written when correct.
 - Avoid repeating names.
+- Do not return anything else like team names, commentary, or other metadata.
 
 Match report text:
 """${data.text}"""
@@ -337,8 +384,20 @@ Match report text:
 
     res.json({ playerNames });
   } catch (err) {
-    console.error("❌ Error extracting player names via Gemini:", err);
-    res.status(500).json({ error: "Failed to extract player names." });
+    console.error("❌ Error extracting player names via Gemini:", err.message);
+
+    if (
+      err.message.includes('503') || // overloaded
+      err.message.includes('overloaded') ||
+      err.message.includes('404') ||  // model not found
+      err.message.includes('not found')
+    ) {
+      console.warn(`⚠️ Model issue detected (${err.message}), switching to next model...`);
+      moveToNextModel(); // Move to next model
+      return exports.extractPlayerNames(req, res); // Retry
+    } else {
+      res.status(500).json({ error: "Failed to extract player names." });
+    }
   }
 };
 
