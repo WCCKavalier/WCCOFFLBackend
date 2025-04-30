@@ -2,13 +2,21 @@ const pdfParse = require("pdf-parse");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const Match = require("../models/ScoreCard");
 const PlayerStats = require("../models/PlayerStats");
+const Team = require("../models/Team");
 const { sendNewPlayerEmail } = require("./mailer");
 const { getModelListWithDefaultFirst, moveToNextModel, fetchModels } = require('./modelSelector');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 function normalizeTeamName(name) {
-  return name.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/\d+/g, "").trim();
+  if (!name) return "";
+
+  return name
+    .replace(/^TEAM(?=\S)/i, "TEAM ")        // Add space after "TEAM" if stuck
+    .replace(/([a-z])([A-Z])/g, "$1 $2")     // Space between lowercase-uppercase
+    .replace(/\d+/g, "")                     // Remove all digits
+    .replace(/\s+/g, " ")                    // Normalize extra spaces
+    .trim();
 }
 
 async function extractDataWithAI(text) {
@@ -193,6 +201,37 @@ exports.uploadPDF = async (req, res) => {
     }));
 
     extracted.matchInfo.teams = extracted.matchInfo.teams.map(normalizeTeamName);
+    const [pdfTeamA, pdfTeamB] = extracted.matchInfo.teams.map(normalizeTeamName);
+    let team1 = await Team.findOne({ teamId: 'team1' });
+    let team2 = await Team.findOne({ teamId: 'team2' });
+    const dbTeam1Name = normalizeTeamName(team1?.teamName || '');
+    const dbTeam2Name = normalizeTeamName(team2?.teamName || '');
+    if (!team1) {
+      team1 = await new Team({
+        teamId: 'team1',
+        teamName: pdfTeamA,
+        captain: "",
+        coreTeam: [],
+        points: 0,
+        score: Array(15).fill('-'),
+      }).save();
+    } else if (dbTeam1Name !== pdfTeamA && dbTeam2Name !== pdfTeamA) {
+      team1.teamName = pdfTeamA;
+      await team1.save();
+    }
+    if (!team2) {
+      team2 = await new Team({
+        teamId: 'team2',
+        teamName: pdfTeamB,
+        captain: "",
+        coreTeam: [],
+        points: 0,
+        score: Array(15).fill('-'),
+      }).save();
+    } else if (dbTeam1Name !== pdfTeamB && dbTeam2Name !== pdfTeamB) {
+      team2.teamName = pdfTeamB;
+      await team2.save();
+    }
 
     const savedMatch = await Match.create(extracted);
     await updatePlayerStatsFromMatch(extracted);
@@ -501,6 +540,15 @@ exports.updatePlayerNames = async (req, res) => {
   } catch (err) {
     console.error("Error updating player names:", err);
     return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+exports.allscorecard = async (req, res) => {
+  try {
+    const scorecards = await Match.find();
+    res.status(200).json(scorecards);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch scorecards", error });
   }
 };
 
