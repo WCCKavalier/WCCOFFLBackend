@@ -593,6 +593,130 @@ exports.allscorecard = async (req, res) => {
   }
 };
 
+exports.revertLastMatch = async (req, res) => {
+  try {
+    const lastMatch = await Match.findOne().sort({ createdAt: -1 });
+    if (!lastMatch) {
+      return res.status(404).json({ error: "No matches found to revert." });
+    }
+
+    const { innings, matchInfo } = lastMatch;
+
+    // Revert player stats
+    for (const inning of innings) {
+      // Batting
+      for (const batsman of inning.batsmen || []) {
+        if (!batsman.name || batsman.name === "Extras") continue;
+        const { name, runs = 0, balls = 0, fours = 0, sixes = 0, outDesc = "" } = batsman;
+        const isNotOut = /not[\s-]?out/i.test(outDesc);
+
+        const player = await PlayerStats.findOne({ name });
+        if (player) {
+          const update = {
+            $inc: {
+              "batting.matches": -1,
+              "batting.runs": -runs,
+              "batting.balls": -balls,
+              "batting.fours": -fours,
+              "batting.sixes": -sixes
+            }
+          };
+          if (isNotOut) update.$inc["batting.NOs"] = -1;
+
+          await PlayerStats.findOneAndUpdate({ name }, update);
+          player.batting.strikeRate = player.batting.balls
+            ? parseFloat((player.batting.runs / player.batting.balls * 100).toFixed(2))
+            : 0;
+          await player.save();
+        }
+      }
+
+      // Bowling
+      for (const bowler of inning.bowlers || []) {
+        const {
+          name,
+          overs = 0,
+          maidens = 0,
+          runs = 0,
+          wickets = 0,
+          dots = 0,
+          fours = 0,
+          sixes = 0,
+          wd = 0,
+          nb = 0
+        } = bowler;
+
+        const player = await PlayerStats.findOne({ name });
+        if (player) {
+          await PlayerStats.findOneAndUpdate(
+            { name },
+            {
+              $inc: {
+                "bowling.matches": -1,
+                "bowling.overs": -overs,
+                "bowling.runs": -runs,
+                "bowling.wickets": -wickets,
+                "bowling.maidens": -maidens,
+                "bowling.dots": -dots,
+                "bowling.fours": -fours,
+                "bowling.sixes": -sixes,
+                "bowling.wd": -wd,
+                "bowling.nb": -nb
+              }
+            }
+          );
+
+          player.bowling.economy = player.bowling.overs
+            ? parseFloat((player.bowling.runs / player.bowling.overs).toFixed(2))
+            : 0;
+          await player.save();
+        }
+      }
+    }
+    console.log("✅ Reverted score");
+
+    // Revert team points/scores
+    const [team1, team2] = await Promise.all([
+      Team.findOne({ teamId: 'team1' }),
+      Team.findOne({ teamId: 'team2' })
+    ]);
+    
+    // Determine winner and loser using isRevert
+    let lastWinner, lastLoser;
+    if (team1?.isRevert === true && team2?.isRevert === false) {
+      lastWinner = team1;
+      lastLoser = team2;
+    } else if (team2?.isRevert === true && team1?.isRevert === false) {
+      lastWinner = team2;
+      lastLoser = team1;
+    } else {
+      return res.status(400).json({ error: "Cannot determine winner and loser from isRevert flags." });
+    }
+    
+    // Revert team points and score
+    if (lastWinner.score.length && lastLoser.score.length) {
+      if (lastWinner.score.at(-1) === "W") lastWinner.score.pop();
+      if (lastLoser.score.at(-1) === "L") lastLoser.score.pop();
+    
+      lastWinner.points = Math.max(0, lastWinner.points - 1);
+      lastWinner.isRevert = false;
+      lastLoser.isRevert = false;
+    
+      await lastWinner.save();
+      await lastLoser.save();
+      console.log("✅ Reverted team points");
+    }
+
+    // Delete match
+    await Match.findByIdAndDelete(lastMatch._id);
+    console.log("✅ Last match removed");
+
+    res.json({ message: "Last match and stats successfully reverted." });
+  } catch (err) {
+    console.error("❌ Revert Last Match Error:", err);
+    res.status(500).json({ error: "Failed to revert last match and stats." });
+  }
+};
 
 
 

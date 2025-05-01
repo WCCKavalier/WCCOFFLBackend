@@ -1,6 +1,6 @@
 const express = require("express");
 const multer = require("multer");
-const { uploadPDF, getAllMatches,validateStumpsReport,playerstat,playerstatadd,validatePlayerNamesFromPDF,extractPlayerNames,validatePlayerNames,updatePlayerNames,allscorecard } = require("../utils/pdfParser");
+const { uploadPDF, getAllMatches,validateStumpsReport,playerstat,playerstatadd,validatePlayerNamesFromPDF,extractPlayerNames,validatePlayerNames,updatePlayerNames,allscorecard,revertLastMatch } = require("../utils/pdfParser");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() }); // Store in memory only
@@ -15,5 +15,6 @@ router.post("/extractPlayerNames", upload.single("pdf"), extractPlayerNames);
 router.post("/validatePlayerNames", validatePlayerNames);                         
 router.post("/updatePlayerNames", updatePlayerNames);
 router.get("/allscorecard", allscorecard);
+router.post("/revertscorecard", revertLastMatch);
 
 module.exports = router;
