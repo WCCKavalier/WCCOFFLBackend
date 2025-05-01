@@ -202,11 +202,12 @@ exports.uploadPDF = async (req, res) => {
 
     extracted.matchInfo.teams = extracted.matchInfo.teams.map(normalizeTeamName);
     const [pdfTeamA, pdfTeamB] = extracted.matchInfo.teams.map(normalizeTeamName);
+
     let team1 = await Team.findOne({ teamId: 'team1' });
     let team2 = await Team.findOne({ teamId: 'team2' });
     const dbTeam1Name = normalizeTeamName(team1?.teamName || '');
     const dbTeam2Name = normalizeTeamName(team2?.teamName || '');
-    if (!team1) {
+    if (!team1 && !team2) {
       team1 = await new Team({
         teamId: 'team1',
         teamName: pdfTeamA,
@@ -215,11 +216,6 @@ exports.uploadPDF = async (req, res) => {
         points: 0,
         score: Array(15).fill('-'),
       }).save();
-    } else if (dbTeam1Name !== pdfTeamA && dbTeam2Name !== pdfTeamA) {
-      team1.teamName = pdfTeamA;
-      await team1.save();
-    }
-    if (!team2) {
       team2 = await new Team({
         teamId: 'team2',
         teamName: pdfTeamB,
@@ -228,9 +224,22 @@ exports.uploadPDF = async (req, res) => {
         points: 0,
         score: Array(15).fill('-'),
       }).save();
-    } else if (dbTeam1Name !== pdfTeamB && dbTeam2Name !== pdfTeamB) {
-      team2.teamName = pdfTeamB;
-      await team2.save();
+    } else {
+      const pdfTeams = [pdfTeamA, pdfTeamB];
+      if (!pdfTeams.includes(dbTeam1Name)) {
+        const newNameForTeam1 = pdfTeams.find(name => name !== dbTeam2Name);
+        if (newNameForTeam1) {
+          team1.teamName = newNameForTeam1;
+          await team1.save();
+        }
+      }
+      if (!pdfTeams.includes(dbTeam2Name)) {
+        const newNameForTeam2 = pdfTeams.find(name => name !== team1.teamName);
+        if (newNameForTeam2) {
+          team2.teamName = newNameForTeam2;
+          await team2.save();
+        }
+      }
     }
 
     const savedMatch = await Match.create(extracted);
