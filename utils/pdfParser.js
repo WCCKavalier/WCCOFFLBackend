@@ -19,6 +19,15 @@ function normalizeTeamName(name) {
     .trim();
 }
 
+function getWinnerFromResult(resultText) {
+  if (!resultText) return null;
+  const fixedText = resultText.replace(/(won)/i, ' $1');
+  console.log("🛠️ Fixed Text:", fixedText); 
+  const teamName = fixedText.split(' won')[0].trim(); 
+  console.log("🔍 Extracted Team Name:", teamName);
+  return normalizeTeamName(teamName);
+}
+
 async function extractDataWithAI(text) {
   const availableModels = await getModelListWithDefaultFirst();
   let currentIndex = 0;
@@ -240,6 +249,29 @@ exports.uploadPDF = async (req, res) => {
           await team2.save();
         }
       }
+    }
+    const resultText = extracted.matchInfo.result || "";
+    const winnerName = getWinnerFromResult(resultText);
+    const loserName = [pdfTeamA, pdfTeamB].find(t => t !== winnerName);
+    const winner = [team1, team2].find(t => normalizeTeamName(t.teamName) === winnerName);
+    const loser = [team1, team2].find(t => normalizeTeamName(t.teamName) === loserName);
+    if (winner && loser) {
+      if (winner.points === 0 && loser.points === 0) {
+        const start = new Date();
+        const startDay = new Date(start.getTime() + (5 * 60 + 30) * 60000);
+        winner.startDate = startDay;
+        loser.startDate = startDay;
+      }
+      winner.points += 1;
+      winner.score.push("W");
+      loser.score.push("L");
+      if (winner.score.length > 15) winner.score.shift();
+      if (loser.score.length > 15) loser.score.shift();
+      winner.isRevert = true;
+      loser.isRevert = false;
+      await winner.save();
+      await loser.save();
+      console.log("✅ Points and scores updated");
     }
 
     const savedMatch = await Match.create(extracted);
