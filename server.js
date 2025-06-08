@@ -24,7 +24,7 @@ connectDB();
 // job.start();
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://wcc-kava.vercel.app",
+  "https://wcc-kavaliers.vercel.app",
 ];
 function corsOriginCheck(origin, callback) {
   const cleanOrigin = origin?.replace(/\/$/, ""); // remove trailing slash
