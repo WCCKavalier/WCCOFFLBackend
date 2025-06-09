@@ -551,35 +551,78 @@ exports.validatePlayerNames = async (req, res) => {
 // Update player names in the database
 exports.updatePlayerNames = async (req, res) => {
   try {
-    // Get the 'updates' parameter from the request body
     const { updates } = req.body;
 
-    // Validate if 'updates' is provided and is an array
     if (!updates || !Array.isArray(updates)) {
       return res.status(400).json({ message: "Missing or invalid 'updates' parameter." });
     }
 
-    // Loop through each update object and update the player names
     for (const { original, updated } of updates) {
       if (!original || !updated) {
         return res.status(400).json({ message: "Both 'original' and 'updated' names must be provided." });
       }
 
-      // Find the player with the 'original' name and update to the 'updated' name
+      // Update PlayerStats
       const player = await PlayerStats.findOneAndUpdate(
-        { name: original },          // Find player by original name
-        { name: updated },           // Update with the new name
-        { new: true }                // Return the updated player document
+        { name: original },
+        { name: updated },
+        { new: true }
       );
 
-      // If the player wasn't found, return an error
       if (!player) {
-        return res.status(404).json({ message: `Player with name "${original}" not found.` });
+        return res.status(404).json({ message: `Player with name "${original}" not found in PlayerStats.` });
+      }
+
+      // Update ScoreCard entries
+      const scorecards = await Match.find({
+        $or: [
+          { 'innings.batsmen.name': original },
+          { 'innings.bowlers.name': original },
+          { 'innings.batsmen.outDesc': new RegExp(original, 'i') },
+          { 'innings.fallOfWickets': { $elemMatch: { $regex: original, $options: 'i' } } }
+        ]
+      });
+
+      for (const match of scorecards) {
+        let updatedFlag = false;
+
+        for (const inning of match.innings) {
+          // Update batsmen names
+          for (const batsman of inning.batsmen) {
+            if (batsman.name === original) {
+              batsman.name = updated;
+              updatedFlag = true;
+            }
+            if (batsman.outDesc && batsman.outDesc.includes(original)) {
+              batsman.outDesc = batsman.outDesc.replace(new RegExp(original, 'g'), updated);
+              updatedFlag = true;
+            }
+          }
+
+          // Update bowlers names
+          for (const bowler of inning.bowlers) {
+            if (bowler.name === original) {
+              bowler.name = updated;
+              updatedFlag = true;
+            }
+          }
+
+          // Update fallOfWickets
+          if (Array.isArray(inning.fallOfWickets)) {
+            inning.fallOfWickets = inning.fallOfWickets.map(desc =>
+              desc.includes(original) ? desc.replace(new RegExp(original, 'g'), updated) : desc
+            );
+            updatedFlag = true;
+          }
+        }
+
+        if (updatedFlag) {
+          await match.save();
+        }
       }
     }
 
-    // Respond with success if all updates were successful
-    return res.status(200).json({ success: true, message: "Player names updated successfully!" });
+    return res.status(200).json({ success: true, message: "Player names updated successfully in PlayerStats and ScoreCard!" });
 
   } catch (err) {
     console.error("Error updating player names:", err);
