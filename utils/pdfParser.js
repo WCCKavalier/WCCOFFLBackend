@@ -69,6 +69,8 @@ Important:
 - **For 'outDesc'**, when mentioning players, ensure the player names are **exactly as extracted** (including spaces and capitalization). 
 - If a name appears in a dismissal description (e.g., run-out, caught), match the **full name** carefully and preserve exact spacing and capitalization.
 - If you find minor mistakes in outDesc, such as missing spaces or wrong letter cases, **correct them based on the batsman or bowler names**.
+- **Sort the matchInfo.teams array in alphabetical order**, and ensure the innings entries are aligned to the correct team name accordingly.
+- When sorting team names, **treat them case-insensitively** and sort by standard dictionary order (e.g., "TEAM JAYANTH" before "TEAM SHRIDHAR").
 - Return only valid JSON, no markdown formatting.
 """${text}"""
   `;
