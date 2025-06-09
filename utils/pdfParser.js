@@ -71,6 +71,7 @@ Important:
 - If you find minor mistakes in outDesc, such as missing spaces or wrong letter cases, **correct them based on the batsman or bowler names**.
 - **Sort the matchInfo.teams array in alphabetical order**, and ensure the innings entries are aligned to the correct team name accordingly.
 - When sorting team names, **treat them case-insensitively** and sort by standard dictionary order (e.g., "TEAM JAYANTH" before "TEAM SHRIDHAR").
+- **Format the matchInfo.date field strictly in DDMonYYYY format (e.g., 19Apr2025)**. Remove any time information, commas, or spacing inconsistencies.
 - Return only valid JSON, no markdown formatting.
 """${text}"""
   `;
