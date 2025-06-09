@@ -66,9 +66,13 @@ Important:
 - **Extract and preserve names exactly as written in the text, including spaces, capitalization, and any middle names.**
 - **If any batsman or bowler names appear to be merged without spaces**, intelligently detect common first names and surnames, and restore spaces between them. For example, if "AadhavanSridharan" is detected, split it into "Aadhavan Sridharan".
 - **Do not merge initials with names**: If there are initials in the names (e.g., "Julie B Madhu"), preserve the space between the initials and the last name.
-- **For 'outDesc'**, when mentioning players, ensure the player names are **exactly as extracted** (including spaces and capitalization). 
-- If a name appears in a dismissal description (e.g., run-out, caught), match the **full name** carefully and preserve exact spacing and capitalization.
-- If you find minor mistakes in outDesc, such as missing spaces or wrong letter cases, **correct them based on the batsman or bowler names**.
+- **For 'outDesc'**, follow these rules:
+  - Ensure standard cricket dismissal prefixes like **"b"**, **"c"**, **"lbw"**, **"Run Out"**, **"st"**, and **"Retired Hurt"** are **separated from player names** with a space.
+  - Fix common errors like **"bCFO"** → "b CFO" or **"RetiredHurt"** → "Retired Hurt".
+  - If both bowler and fielder are mentioned (e.g., "c Aadhavan Sridharan b CFO"), match their names **exactly** as extracted elsewhere, including spacing and capitalization.
+  - If player names are joined with dismissal terms, **insert proper spacing** to separate them.
+  - Final outDesc value must be a **natural, readable cricket dismissal line** with correct spelling, spacing, and capitalization.
+  - If you find minor mistakes in outDesc, such as missing spaces or wrong letter cases, **correct them based on the batsman or bowler names**.
 - **Sort the matchInfo.teams array in alphabetical order**, and ensure the innings entries are aligned to the correct team name accordingly.
 - When sorting team names, **treat them case-insensitively** and sort by standard dictionary order (e.g., "TEAM JAYANTH" before "TEAM SHRIDHAR").
 - **Format the matchInfo.date field strictly in DDMonYYYY format (e.g., 19Apr2025)**. Remove any time information, commas, or spacing inconsistencies.
