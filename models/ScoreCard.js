@@ -46,6 +46,8 @@ const matchSchema = new mongoose.Schema({
     playerOfMatch: String
   },
   innings: [inningsSchema]
+},{
+  timestamps: true 
 });
 
 module.exports = mongoose.model("ScoreCard", matchSchema);

@@ -3,6 +3,10 @@ const mongoose = require("mongoose");
 const playerStatsSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
   serial: { type: Number, default: 0 },
+  DOB: {type: Date, default: null },
+  Skill:{type: String, default: null},
+  Description:{type: String, default: null},
+  PhotoUrl:{type: String, default: null},
   batting: {
     matches: { type: Number, default: 0 },
     runs: { type: Number, default: 0 },
