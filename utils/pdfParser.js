@@ -468,18 +468,24 @@ exports.extractPlayerNames = async (req, res) => {
 
     const prompt = `
 You are analyzing a cricket match report from the STUMPS app.
-Your task is to extract only the **player names** who played in the match from the following report.
 
-Important rules:
-- Return the names in a JSON array format like ["Player One", "Player Two", ...].
-- **Restore missing spaces** if names appear merged together, based on typical cricket naming patterns and styles seen elsewhere in the report.
-- Preserve the **original spaces** and **capitalization** of the names exactly as written when correct.
-- Avoid repeating names.
-- Do not return anything else like team names, commentary, or other metadata.
+Your task is to extract the full list of **player names** who participated in the match.
 
-Match report text:
+### Rules:
+- Return a **JSON array** of names like: ["Player One", "Player Two", ...]
+- Include batters, bowlers, fielders, and any player mentioned in the scorecard, dismissal lines (like "c Ram b Gucci"), or bowling/partnership summaries.
+- Pay attention to cricket notation (e.g., "c Ram b Gucci") — extract both "Ram" and "Gucci" as valid players.
+- Fix minor errors such as:
+  - "c Ram b Gucci" → should be "Ram" and "Gucci"
+  - Remove stray trailing characters like "b", "lbw", "runout", etc.
+  - Restore spacing in merged names like "KarthikPonting" → "Karthik Ponting"
+- Use **context clues** to correct or infer proper name formatting.
+- Preserve correct **capitalization** and **spacing** as much as possible.
+- Avoid duplicate names and remove team names or metadata.
+
+Match report:
 """${data.text}"""
-    `;
+`;
 
     while (retries > 0) {
       const modelName = availableModels[currentIndex];
