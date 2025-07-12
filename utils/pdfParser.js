@@ -2,6 +2,7 @@ const pdfParse = require("pdf-parse");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const Match = require("../models/ScoreCard");
 const PlayerStats = require("../models/PlayerStats");
+const Image = require("../models/Image");
 const Team = require("../models/Team");
 const { sendNewPlayerEmail } = require("./mailer");
 const { getModelListWithDefaultFirst, moveToNextModel, fetchModels } = require('./modelSelector');
@@ -629,6 +630,11 @@ exports.updatePlayerNames = async (req, res) => {
         if (updatedFlag) {
           await match.save();
         }
+        await Image.updateMany(
+          { "history.winner": original },
+          { $set: { "history.$[elem].winner": updated } },
+          { arrayFilters: [{ "elem.winner": original }] }
+        );
       }
     }
 
