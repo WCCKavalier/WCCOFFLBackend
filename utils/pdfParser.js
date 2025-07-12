@@ -583,6 +583,11 @@ exports.updatePlayerNames = async (req, res) => {
       if (!player) {
         return res.status(404).json({ message: `Player with name "${original}" not found in PlayerStats.` });
       }
+      await Image.updateMany(
+          { "history.winner": original },
+          { $set: { "history.$[elem].winner": updated } },
+          { arrayFilters: [{ "elem.winner": original }] }
+        );
 
       // Update ScoreCard entries
       const scorecards = await Match.find({
@@ -630,11 +635,6 @@ exports.updatePlayerNames = async (req, res) => {
         if (updatedFlag) {
           await match.save();
         }
-        await Image.updateMany(
-          { "history.winner": original },
-          { $set: { "history.$[elem].winner": updated } },
-          { arrayFilters: [{ "elem.winner": original }] }
-        );
       }
     }
 
