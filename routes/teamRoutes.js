@@ -7,7 +7,36 @@ const { startSession } = require("mongoose");
 // Update Points API (Starts series if first win)
 router.put('/update-points', async (req, res) => {
     try {
-        const { winnerId } = req.body;
+        const { winnerId, result } = req.body;
+        if (result === "draw") {
+          const teams = await Team.find({ teamId: { $in: ["team1", "team2"] } });
+
+          if (teams.length !== 2) {
+              return res.status(404).json({ message: "Teams not found" });
+          }
+
+          // Set start date if first match
+          if (teams[0].points === 0 && teams[1].points === 0) {
+              const start = new Date();
+              const startDay = new Date(start.getTime() + (5 * 60 + 30) * 60000);
+              teams[0].startDate = startDay;
+              teams[1].startDate = startDay;
+          }
+
+          teams[0].score.push("D");
+          teams[1].score.push("D");
+          if (teams[0].score.length > 15) teams[0].score.shift();
+          if (teams[1].score.length > 15) teams[1].score.shift();
+
+          teams[0].isRevert = true;
+          teams[1].isRevert = true;
+
+          await teams[0].save();
+          await teams[1].save();
+
+          return res.json({ team1: teams[0], team2: teams[1] });
+        }
+
         const loserId = winnerId === 'team1' ? 'team2' : 'team1';
 
         const winner = await Team.findOne({ teamId: winnerId });
