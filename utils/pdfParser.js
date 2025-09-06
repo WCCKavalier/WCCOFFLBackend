@@ -22,9 +22,12 @@ function normalizeTeamName(name) {
 
 function getWinnerFromResult(resultText) {
   if (!resultText) return null;
-  const fixedText = resultText.replace(/(won)/i, ' $1');
-  console.log("🛠️ Fixed Text:", fixedText); 
-  const teamName = fixedText.split(' won')[0].trim(); 
+  const fixedText = resultText.replace(/(won)/i, ' $1').replace(/(draw|tie)/i, ' $1');
+  console.log("🛠️ Fixed Text:", fixedText);
+  if (/draw|tie/i.test(fixedText)) {
+    return "Draw";
+  }
+  const teamName = fixedText.split(' won')[0].trim();
   console.log("🔍 Extracted Team Name:", teamName);
   return normalizeTeamName(teamName);
 }
@@ -260,26 +263,46 @@ exports.uploadPDF = async (req, res) => {
     }
     const resultText = extracted.matchInfo.result || "";
     const winnerName = getWinnerFromResult(resultText);
-    const loserName = [pdfTeamA, pdfTeamB].find(t => t !== winnerName);
-    const winner = [team1, team2].find(t => normalizeTeamName(t.teamName) === winnerName);
-    const loser = [team1, team2].find(t => normalizeTeamName(t.teamName) === loserName);
-    if (winner && loser) {
-      if (winner.points === 0 && loser.points === 0) {
-        const start = new Date();
-        const startDay = new Date(start.getTime() + (5 * 60 + 30) * 60000);
-        winner.startDate = startDay;
-        loser.startDate = startDay;
+    if (winnerName === "Draw") {
+      if (team1 && team2) {
+        if (team1.points === 0 && team2.points === 0) {
+          const start = new Date();
+          const startDay = new Date(start.getTime() + (5 * 60 + 30) * 60000);
+          team1.startDate = startDay;
+          team2.startDate = startDay;
+        }
+        team1.score.push("D");
+        team2.score.push("D");
+        if (team1.score.length > 15) team1.score.shift();
+        if (team2.score.length > 15) team2.score.shift();
+        team1.isRevert = true;
+        team2.isRevert = true;
+        await team1.save();
+        await team2.save();
+        console.log("✅ Draw: scores updated");
       }
-      winner.points += 1;
-      winner.score.push("W");
-      loser.score.push("L");
-      if (winner.score.length > 15) winner.score.shift();
-      if (loser.score.length > 15) loser.score.shift();
-      winner.isRevert = true;
-      loser.isRevert = false;
-      await winner.save();
-      await loser.save();
-      console.log("✅ Points and scores updated");
+    } else {
+      const loserName = [pdfTeamA, pdfTeamB].find(t => t !== winnerName);
+      const winner = [team1, team2].find(t => normalizeTeamName(t.teamName) === winnerName);
+      const loser = [team1, team2].find(t => normalizeTeamName(t.teamName) === loserName);
+      if (winner && loser) {
+        if (winner.points === 0 && loser.points === 0) {
+          const start = new Date();
+          const startDay = new Date(start.getTime() + (5 * 60 + 30) * 60000);
+          winner.startDate = startDay;
+          loser.startDate = startDay;
+        }
+        winner.points += 1;
+        winner.score.push("W");
+        loser.score.push("L");
+        if (winner.score.length > 15) winner.score.shift();
+        if (loser.score.length > 15) loser.score.shift();
+        winner.isRevert = true;
+        loser.isRevert = false;
+        await winner.save();
+        await loser.save();
+        console.log("✅ Points and scores updated");
+      }
     }
 
     const savedMatch = await Match.create(extracted);
