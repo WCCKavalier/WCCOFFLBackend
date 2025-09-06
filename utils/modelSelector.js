@@ -29,7 +29,7 @@ async function fetchModels() {
 async function getModelListWithDefaultFirst() {
   const availableModels = await fetchModels();
 
-  const defaultModel = 'gemini-2.0-flash';
+  const defaultModel = 'gemini-2.5-flash';
   const filteredModels = availableModels.filter(model => model !== defaultModel);
 
   // Put default model at front
