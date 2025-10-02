@@ -57,6 +57,7 @@ app.use(cors({
   methods: ["GET", "POST","PUT","DELETE"],
   credentials: true
 }));
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(async (req, res, next) => {
   try {
