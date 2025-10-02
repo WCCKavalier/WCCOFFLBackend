@@ -17,7 +17,10 @@ const teamRoutes = require("./routes/teamRoutes.js");
 const scorecardRoutes = require('./routes/scorecard.js');
 const Activity = require('./models/Activity.js');
 if (process.env.NODE_ENV !== "production") {
-dotenv.config({ path: '/etc/secrets/.env' });}
+dotenv.config();}
+else {
+  dotenv.config({ path: '/etc/secrets/.env' });
+}
 connectDB();
 
 // const job = require('./cron.js');
